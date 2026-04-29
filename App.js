@@ -8,6 +8,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   StatusBar, ScrollView, Alert, SafeAreaView, Dimensions,
   Animated, Modal, ActivityIndicator, RefreshControl, Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 
 // ── Firebase
@@ -233,15 +234,21 @@ export default function App() {
 
   const addEmployee = async () => {
     if (!empName || !empPhone) { Alert.alert('Fill all fields'); return; }
-    const id = `pro_${empPhone}`;
-    await fbSet('professionals', id, {
+    const id = `worker_${empPhone}`;
+    const empData = {
       id, name: empName, phone: empPhone,
       role: empRole, isAvailable: true, isActive: true,
+      status: 'active',
       currentArea: empArea, assignedAreas: [empArea],
-      rating: 4.9, totalJobs: 0, badge: 'New',
+      ratingAvg: 4.9, totalReviews: 0, totalJobsCompleted: 0,
+      performanceScore: 85, salary: 12000,
       joinedAt: firestore.FieldValue.serverTimestamp(),
+      attendance: { jobsToday:0, jobsWeek:0, daysPresent:0, daysAbsent:0, daysLeave:0 },
       earnings: { today:0, thisWeek:0, thisMonth:0, total:0 },
-    });
+    };
+    // Write to both collections for compatibility
+    await fbSet('workers', id, empData);
+    await fbSet('professionals', id, empData);
     setAddEmpModal(false); setEmpName(''); setEmpPhone('');
     fbGetAll('professionals', 100).then(setEmployees);
     Alert.alert('✅ Added', `${empName} added as ${empRole}`);
@@ -768,7 +775,8 @@ export default function App() {
                 <Text style={{ color:C.orange, fontWeight:'700' }}>Save</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ padding:16 }}>
+            <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{flex:1}}>
+            <ScrollView style={{ padding:16 }} keyboardShouldPersistTaps="handled">
               <Text style={S.lbl}>Full Name</Text>
               <TextInput style={S.inp} placeholder="Lakshmi Devi" placeholderTextColor={C.muted}
                 value={empName} onChangeText={setEmpName} color={C.text}/>
