@@ -806,6 +806,7 @@ export default function App() {
                 ))}
               </View>
             </ScrollView>
+            </KeyboardAvoidingView>
           </SafeAreaView>
         </Modal>
       </View>
