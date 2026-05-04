@@ -162,7 +162,13 @@ export default function App() {
     // Real-time bookings listener
     const unsub = fbListen('bookings', setBookings);
     // Load employees + config
-    fbGetAll('professionals', 100).then(setEmployees);
+    // Load from workers collection (where seed script wrote them)
+    firestore().collection('workers').orderBy('joinedAt','desc').limit(100).get()
+      .then(snap => {
+        const ws = snap.docs.map(d=>({id:d.id,...d.data()}));
+        if(ws.length > 0) setEmployees(ws);
+        else fbGetAll('professionals', 100).then(setEmployees); // fallback
+      }).catch(()=> fbGetAll('professionals', 100).then(setEmployees));
     fbGetAll('users', 100).then(setCustomers);
     firestore().collection('app_config').doc('promo_codes').get()
       .then(d => d.exists && setPromos(d.data()));
@@ -216,10 +222,20 @@ export default function App() {
   const assignPro = async (booking, pro) => {
     const ok = await fbUpdate('bookings', booking.id, {
       professional: { id: pro.id, name: pro.name, phone: pro.phone, rating: pro.rating||4.9 },
+      assignedWorkerId: pro.id,
+      assignedWorkerName: pro.name,
+      assignedWorkerPhone: pro.phone,
+      customerName: booking.userName,
+      customerPhone: booking.userPhone,
+      serviceType: (booking.items||[{name:'Home Cleaning'}])[0]?.name||'Home Cleaning',
+      addressFull: booking.addressFull,
+      slot: booking.slot,
+      otp: booking.otp,
       status: 'Assigned',
       assignedAt: firestore.FieldValue.serverTimestamp(),
     });
     if (ok) {
+      try { await fbUpdate('workers', pro.id, { isAvailable: false, currentJobId: booking.id }); } catch(e){}
       Alert.alert('✅ Assigned', `${pro.name} assigned to booking ${booking.orderId}`);
       setAssignModal(false);
     }
@@ -250,7 +266,13 @@ export default function App() {
     await fbSet('workers', id, empData);
     await fbSet('professionals', id, empData);
     setAddEmpModal(false); setEmpName(''); setEmpPhone('');
-    fbGetAll('professionals', 100).then(setEmployees);
+    // Load from workers collection (where seed script wrote them)
+    firestore().collection('workers').orderBy('joinedAt','desc').limit(100).get()
+      .then(snap => {
+        const ws = snap.docs.map(d=>({id:d.id,...d.data()}));
+        if(ws.length > 0) setEmployees(ws);
+        else fbGetAll('professionals', 100).then(setEmployees); // fallback
+      }).catch(()=> fbGetAll('professionals', 100).then(setEmployees));
     Alert.alert('✅ Added', `${empName} added as ${empRole}`);
   };
 
@@ -259,7 +281,13 @@ export default function App() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: async () => {
         await fbUpdate('professionals', emp.id, { isActive: false });
-        fbGetAll('professionals', 100).then(setEmployees);
+        // Load from workers collection (where seed script wrote them)
+    firestore().collection('workers').orderBy('joinedAt','desc').limit(100).get()
+      .then(snap => {
+        const ws = snap.docs.map(d=>({id:d.id,...d.data()}));
+        if(ws.length > 0) setEmployees(ws);
+        else fbGetAll('professionals', 100).then(setEmployees); // fallback
+      }).catch(()=> fbGetAll('professionals', 100).then(setEmployees));
       }},
     ]);
   };
