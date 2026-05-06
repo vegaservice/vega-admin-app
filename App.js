@@ -672,6 +672,14 @@ export default function App() {
                     <Text style={{ color:C.muted, fontSize:12 }}>📞 {b.userPhone}</Text>
                     <Text style={{ color:C.text2, fontSize:12, marginTop:4 }}>📍 {b.addressFull||'No address'}</Text>
                     <Text style={{ color:C.muted, fontSize:11, marginTop:4 }}>📅 {b.slot}</Text>
+                    {b.bookingMode==='recurring'&&b.recurFreq&&(
+                      <View style={{flexDirection:'row',alignItems:'center',gap:4,marginTop:4}}>
+                        <View style={{backgroundColor:'#FFF8E7',paddingHorizontal:7,paddingVertical:2,borderRadius:8,borderWidth:0.5,borderColor:'#D4A017'}}>
+                          <Text style={{color:'#B8860B',fontSize:10,fontWeight:'700'}}>🔄 {b.recurFreq}</Text>
+                        </View>
+                        {b.isRecurringChild&&<Text style={{color:C.muted,fontSize:10}}>Occurrence #{b.recurIndex+1}</Text>}
+                      </View>
+                    )}
                     {b.professional && (
                       <Text style={{ color:C.green, fontSize:12, marginTop:4 }}>👩 {b.professional.name}</Text>
                     )}
