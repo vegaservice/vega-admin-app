@@ -73,12 +73,13 @@ const timeAgo = (ts) => {
 };
 
 const STATUS_COLORS = {
-  Confirmed:  { bg: C.blueBg,   text: C.blue,   border: '#1A3060' },
-  Assigned:   { bg: C.goldBg,   text: C.gold,   border: '#4A3010' },
-  OnTheWay:   { bg: C.orangeBg, text: C.orange, border: C.orangeBd },
-  Started:    { bg: C.purpleBg, text: C.purple, border: '#3A1060' },
-  Completed:  { bg: C.greenBg,  text: C.green,  border: C.greenBd },
-  Cancelled:  { bg: C.redBg,    text: C.red,    border: C.redBd },
+  confirmed:   { bg: C.blueBg,   text: C.blue,   border: '#1A3060' },
+  assigned:    { bg: C.goldBg,   text: C.gold,   border: '#4A3010' },
+  on_the_way:  { bg: C.orangeBg, text: C.orange, border: C.orangeBd },
+  in_progress: { bg: C.purpleBg, text: C.purple, border: '#3A1060' },
+  completed:   { bg: C.greenBg,  text: C.green,  border: C.greenBd },
+  cancelled:   { bg: C.redBg,    text: C.red,    border: C.redBd },
+  rejected:    { bg: C.redBg,    text: C.red,    border: C.redBd },
 };
 
 // ══════════════════════════════════════════════════
@@ -156,25 +157,40 @@ export default function App() {
     setTimeout(() => setScreen('login'), 2500);
   }, []);
 
-  // Load data when logged in
+  // Load data when logged in — ALL real-time
   useEffect(() => {
     if (screen !== 'main') return;
-    // Real-time bookings listener
-    const unsub = fbListen('bookings', setBookings);
-    // Load employees + config
-    // Load from workers collection (where seed script wrote them)
-    firestore().collection('workers').orderBy('joinedAt','desc').limit(100).get()
-      .then(snap => {
-        const ws = snap.docs.map(d=>({id:d.id,...d.data()}));
-        if(ws.length > 0) setEmployees(ws);
-        else fbGetAll('professionals', 100).then(setEmployees); // fallback
-      }).catch(()=> fbGetAll('professionals', 100).then(setEmployees));
-    fbGetAll('users', 100).then(setCustomers);
+    const unsubs = [];
+    // ✅ Real-time bookings
+    unsubs.push(fbListen('bookings', setBookings));
+    // ✅ Real-time workers
+    unsubs.push(
+      firestore().collection('workers')
+        .where('status','==','active')
+        .orderBy('name','asc').limit(100)
+        .onSnapshot(
+          snap => setEmployees(snap.docs.map(d=>({id:d.id,...d.data()}))),
+          err => {
+            console.error('workers listener:',err);
+            fbGetAll('professionals',100).then(setEmployees);
+          }
+        )
+    );
+    // ✅ Real-time customers
+    unsubs.push(
+      firestore().collection('users')
+        .orderBy('createdAt','desc').limit(100)
+        .onSnapshot(
+          snap => setCustomers(snap.docs.map(d=>({id:d.id,...d.data()}))),
+          err => console.error('users listener:',err)
+        )
+    );
+    // One-time fetches for config (rarely changes)
     firestore().collection('app_config').doc('promo_codes').get()
-      .then(d => d.exists && setPromos(d.data()));
+      .then(d => d.exists && setPromos(d.data())).catch(()=>{});
     firestore().collection('app_config').doc('settings').get()
-      .then(d => d.exists && setSettings(d.data()));
-    return () => unsub();
+      .then(d => d.exists && setSettings(d.data())).catch(()=>{});
+    return () => unsubs.forEach(u => u());
   }, [screen]);
 
   // ── AUTH
@@ -214,7 +230,7 @@ export default function App() {
     return d.toDateString() === todayStr;
   });
   const todayRevenue = todayBookings.reduce((s,b) => s + (b.total||0), 0);
-  const pendingBookings = bookings.filter(b => b.status === 'Confirmed');
+  const pendingBookings = bookings.filter(b => b.status === 'confirmed');
   const activeEmployees = employees.filter(e => e.isAvailable && e.isActive);
   const totalRevenue = bookings.reduce((s,b) => s + (b.total||0), 0);
 
@@ -225,14 +241,15 @@ export default function App() {
       assignedWorkerId: pro.id,
       assignedWorkerName: pro.name,
       assignedWorkerPhone: pro.phone,
-      customerName: booking.userName,
-      customerPhone: booking.userPhone,
+      customerName: booking.userName || booking.customerName,
+      customerPhone: booking.userPhone || booking.customerPhone,
       serviceType: (booking.items||[{name:'Home Cleaning'}])[0]?.name||'Home Cleaning',
       addressFull: booking.addressFull,
       slot: booking.slot,
       otp: booking.otp,
-      status: 'Assigned',
+      status: 'assigned',   // ← snake_case
       assignedAt: firestore.FieldValue.serverTimestamp(),
+      updatedAt: firestore.FieldValue.serverTimestamp(),
     });
     if (ok) {
       try { await fbUpdate('workers', pro.id, { isAvailable: false, currentJobId: booking.id }); } catch(e){}
@@ -389,7 +406,7 @@ export default function App() {
   // ══════════════════════════════════════════════════
   const BookingDetailModal = () => {
     if (!selBooking) return null;
-    const sc = STATUS_COLORS[selBooking.status] || STATUS_COLORS.Confirmed;
+    const sc = STATUS_COLORS[selBooking.status] || STATUS_COLORS.confirmed;
     return (
       <Modal visible={!!selBooking} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={{ flex:1, backgroundColor:C.bg }}>
@@ -480,7 +497,7 @@ export default function App() {
             <View style={S.detailCard}>
               <Text style={S.detailTitle}>⚡ Update Status</Text>
               <View style={{ flexDirection:'row', flexWrap:'wrap', gap:8, marginTop:12 }}>
-                {['Confirmed','Assigned','OnTheWay','Started','Completed','Cancelled'].map(st=>(
+                {['confirmed','assigned','on_the_way','in_progress','completed','cancelled'].map(st=>(
                   <TouchableOpacity key={st}
                     style={{ paddingHorizontal:12, paddingVertical:6, borderRadius:16,
                       backgroundColor: selBooking.status===st ? C.orange : C.card2,
@@ -583,7 +600,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
         {bookings.slice(0,5).map(b => {
-          const sc = STATUS_COLORS[b.status] || STATUS_COLORS.Confirmed;
+          const sc = STATUS_COLORS[b.status] || STATUS_COLORS.confirmed;
           return (
             <TouchableOpacity key={b.id} style={[S.card, { flexDirection:'row', alignItems:'center', marginBottom:10 }]}
               onPress={()=>setSelBooking(b)}>
@@ -617,7 +634,7 @@ export default function App() {
   // ══════════════════════════════════════════════════
   const OrdersTab = () => {
     const [filter, setFilter] = useState('All');
-    const filters = ['All','Confirmed','Assigned','OnTheWay','Started','Completed','Cancelled'];
+    const filters = ['All','confirmed','assigned','on_the_way','in_progress','completed','cancelled'];
     const filtered = filter==='All' ? bookings : bookings.filter(b=>b.status===filter);
     return (
       <View style={{ flex:1 }}>
@@ -639,7 +656,7 @@ export default function App() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.orange}/>}>
           <Text style={{ color:C.muted, fontSize:12, marginBottom:12 }}>{filtered.length} bookings</Text>
           {filtered.map(b => {
-            const sc = STATUS_COLORS[b.status] || STATUS_COLORS.Confirmed;
+            const sc = STATUS_COLORS[b.status] || STATUS_COLORS.confirmed;
             return (
               <TouchableOpacity key={b.id} style={[S.card, { marginBottom:10 }]}
                 onPress={()=>setSelBooking(b)}>
@@ -658,7 +675,7 @@ export default function App() {
                     {b.professional && (
                       <Text style={{ color:C.green, fontSize:12, marginTop:4 }}>👩 {b.professional.name}</Text>
                     )}
-                    {!b.professional && b.status==='Confirmed' && (
+                    {!b.professional && b.status==='confirmed' && (
                       <Text style={{ color:C.red, fontSize:12, marginTop:4 }}>⚠️ No professional assigned</Text>
                     )}
                   </View>
