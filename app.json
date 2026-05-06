@@ -5,26 +5,27 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F0A06"
+      "backgroundColor": "#1A0800"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vegavizag.admin",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F0A06"
+        "backgroundColor": "#E8520A"
       },
       "package": "com.vegavizag.admin",
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json"
     },
-    "ios": {
-      "bundleIdentifier": "com.vegavizag.admin",
-      "googleServicesFile": "./GoogleService-Info.plist",
-      "supportsTablet": false
-    },
-    "owner": "mahesh1331",
     "plugins": [
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
@@ -32,22 +33,16 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
-            "minSdkVersion": 24,
-            "enableProguardInReleaseBuilds": false
-          },
-          "ios": {
-            "useFrameworks": "static"
+            "googleServicesFile": "./google-services.json"
           }
         }
-      ],
-      "@react-native-firebase/messaging"
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "1f5c1c9a-4dd7-498f-8127-518a42a14ef4"
+        "projectId": "a2cb81a3-7b99-49f5-9ec4-6ace8e81d762"
       }
-    }
+    },
+    "owner": "mahesh1331"
   }
 }
