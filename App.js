@@ -218,7 +218,7 @@ export default function App() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fbGetAll('professionals', 100).then(setEmployees);
+    await fbGetAll('workers', 100).then(setEmployees);
     await fbGetAll('users', 100).then(setCustomers);
     setRefreshing(false);
   };
@@ -247,7 +247,7 @@ export default function App() {
       addressFull: booking.addressFull,
       slot: booking.slot,
       otp: booking.otp,
-      status: 'assigned',   // ← snake_case
+      status: 'assigned',
       assignedAt: firestore.FieldValue.serverTimestamp(),
       updatedAt: firestore.FieldValue.serverTimestamp(),
     });
@@ -288,7 +288,7 @@ export default function App() {
       .then(snap => {
         const ws = snap.docs.map(d=>({id:d.id,...d.data()}));
         if(ws.length > 0) setEmployees(ws);
-        else fbGetAll('professionals', 100).then(setEmployees); // fallback
+        else fbGetAll('professionals', 100).then(setEmployees);
       }).catch(()=> fbGetAll('professionals', 100).then(setEmployees));
     Alert.alert('✅ Added', `${empName} added as ${empRole}`);
   };
@@ -297,14 +297,14 @@ export default function App() {
     Alert.alert('Remove Employee', `Remove ${emp.name} from VEGA?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: async () => {
+        await fbUpdate('workers', emp.id, { isActive: false, status: 'inactive' });
         await fbUpdate('professionals', emp.id, { isActive: false });
-        // Load from workers collection (where seed script wrote them)
-    firestore().collection('workers').orderBy('joinedAt','desc').limit(100).get()
-      .then(snap => {
-        const ws = snap.docs.map(d=>({id:d.id,...d.data()}));
-        if(ws.length > 0) setEmployees(ws);
-        else fbGetAll('professionals', 100).then(setEmployees); // fallback
-      }).catch(()=> fbGetAll('professionals', 100).then(setEmployees));
+        firestore().collection('workers').orderBy('joinedAt','desc').limit(100).get()
+          .then(snap => {
+            const ws = snap.docs.map(d=>({id:d.id,...d.data()}));
+            if(ws.length > 0) setEmployees(ws);
+            else fbGetAll('professionals', 100).then(setEmployees);
+          }).catch(()=> fbGetAll('professionals', 100).then(setEmployees));
       }},
     ]);
   };
@@ -557,7 +557,7 @@ export default function App() {
       <View style={{ padding:20, paddingTop:8 }}>
         <Text style={{ fontSize:11, color:C.muted, letterSpacing:2 }}>VEGA OPERATIONS</Text>
         <Text style={{ fontSize:26, fontWeight:'900', color:C.text, marginTop:4 }}>Good {new Date().getHours()<12?'Morning':'Evening'} 🪷</Text>
-        <Text style={{ fontSize:13, color:C.muted }}>Visakhapatnam · {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'})}</Text>
+        <Text style={{ fontSize:13, color:C.muted }}>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'})}</Text>
       </View>
 
       {/* Urgent Alert */}
@@ -641,7 +641,6 @@ export default function App() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           style={{ paddingVertical:12, paddingHorizontal:16, maxHeight:56 }}>
           {filters.map(f => {
-            const sc = STATUS_COLORS[f];
             return (
               <TouchableOpacity key={f} onPress={()=>setFilter(f)}
                 style={{ paddingHorizontal:14, paddingVertical:6, borderRadius:20, marginRight:8,
@@ -770,8 +769,9 @@ export default function App() {
                   <TouchableOpacity onPress={()=>{
                     Alert.alert(emp.name, 'Choose action', [
                       { text:'Toggle Available', onPress: async ()=>{
+                        await fbUpdate('workers',emp.id,{isAvailable:!emp.isAvailable});
                         await fbUpdate('professionals',emp.id,{isAvailable:!emp.isAvailable});
-                        fbGetAll('professionals',100).then(setEmployees);
+                        fbGetAll('workers',100).then(setEmployees);
                       }},
                       { text:'Remove Employee', style:'destructive', onPress:()=>removeEmployee(emp) },
                       { text:'Cancel', style:'cancel' },
@@ -870,7 +870,7 @@ export default function App() {
   // FINANCE TAB
   // ══════════════════════════════════════════════════
   const FinanceTab = () => {
-    const completed = bookings.filter(b=>b.status==='Completed');
+    const completed = bookings.filter(b=>b.status==='completed');
     const totalCompleted = completed.reduce((s,b)=>s+(b.total||0),0);
     const totalPromo = bookings.reduce((s,b)=>s+(b.promoDiscount||0),0);
     const totalWallet = bookings.reduce((s,b)=>s+(b.walletUsed||0),0);
