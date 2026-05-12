@@ -14,6 +14,7 @@ import {
 // ── Firebase
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import messaging from '@react-native-firebase/messaging';
 
 const { width: W, height: H } = Dimensions.get('window');
 
@@ -213,6 +214,17 @@ export default function App() {
     try {
       await confirm.confirm(otpVal);
       setIsAdmin(true); setLoading(false); setScreen('main');
+      // Save FCM token so Cloud Functions can send notifications to admin
+      try {
+        await messaging().requestPermission();
+        const fcmToken = await messaging().getToken();
+        if (fcmToken) {
+          await firestore().collection('admins').doc(phone).set(
+            { fcmToken, fcmUpdatedAt: firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+        }
+      } catch(fcmErr) { console.log('Admin FCM token:', fcmErr.message); }
     } catch(e) { setLoading(false); Alert.alert('Wrong OTP', e.message); }
   };
 
