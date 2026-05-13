@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "VEGA Super User",
+    "name": "VEGA Admin",
     "slug": "vega-admin",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vegaservice.admin",
+      "bundleIdentifier": "com.vegavizag.admin",
       "buildNumber": "1",
       "appleTeamId": "73RYNYV3JU",
       "infoPlist": {
@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1A1A4E"
       },
-      "package": "com.vegaservice.admin",
+      "package": "com.vegavizag.admin",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "permissions": [
