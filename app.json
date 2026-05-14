@@ -19,7 +19,9 @@
       "bundleIdentifier": "com.vegavizag.admin",
       "buildNumber": "1",
       "appleTeamId": "73RYNYV3JU",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "VEGA Admin needs camera access for service verification photos",
         "NSPhotoLibraryUsageDescription": "VEGA Admin needs photo access for service documentation",
         "NSLocationWhenInUseUsageDescription": "VEGA Admin needs location to monitor service areas"
