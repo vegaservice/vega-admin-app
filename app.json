@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "VEGA Admin",
-    "slug": "vega-home-services",
+    "slug": "vega-admin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,16 +17,31 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vegavizag.admin",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "appleTeamId": "73RYNYV3JU",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "VEGA Admin needs camera access for service verification photos",
+        "NSPhotoLibraryUsageDescription": "VEGA Admin needs photo access for service documentation",
+        "NSLocationWhenInUseUsageDescription": "VEGA Admin needs location to monitor service areas"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#E8520A"
+        "backgroundColor": "#1A1A4E"
       },
       "package": "com.vegavizag.admin",
       "versionCode": 1,
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "plugins": [
       "@react-native-firebase/app",

@@ -213,6 +213,11 @@ export default function App() {
     setLoading(true);
     try {
       await confirm.confirm(otpVal);
+      // Save FCM token so Cloud Functions can notify admin of new bookings
+      try {
+        const adminFcm = await messaging().getToken();
+        if (adminFcm) await firestore().collection('admins').doc(phone).set({ fcmToken: adminFcm, phone }, { merge: true });
+      } catch(e) { console.log('Admin FCM:', e); }
       setIsAdmin(true); setLoading(false); setScreen('main');
       // Save FCM token so Cloud Functions can send notifications to admin
       try {
