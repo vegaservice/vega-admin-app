@@ -29,7 +29,7 @@
       },
       "package": "com.vegavizag.admin",
       "googleServicesFile": "./google-services.json",
-      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+      "permissions": ["CAMERA","READ_EXTERNAL_STORAGE","WRITE_EXTERNAL_STORAGE","ACCESS_FINE_LOCATION","ACCESS_COARSE_LOCATION","RECEIVE_BOOT_COMPLETED","VIBRATE"]
     },
     "plugins": [
       "@react-native-firebase/app",
@@ -51,7 +51,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "a2cb81a3-7b99-49f5-9ec4-6ace8e81d762"
+        "projectId": "1f5c1c9a-4dd7-498f-8127-518a42a14ef4"
       }
     },
     "owner": "mahesh1331"
