@@ -11,9 +11,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#1A0800"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vegavizag.admin",
@@ -21,36 +19,32 @@
       "appleTeamId": "73RYNYV3JU",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "VEGA Admin needs camera access for service verification photos",
-        "NSPhotoLibraryUsageDescription": "VEGA Admin needs photo access for service documentation",
-        "NSLocationWhenInUseUsageDescription": "VEGA Admin needs location to monitor service areas"
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1A1A4E"
+        "backgroundColor": "#E8520A"
       },
       "package": "com.vegavizag.admin",
-      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
-      ]
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "RECEIVE_BOOT_COMPLETED", "VIBRATE"]
     },
     "plugins": [
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
+      "@react-native-firebase/messaging",
       [
         "expo-build-properties",
         {
           "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
             "googleServicesFile": "./google-services.json"
+          },
+          "ios": {
+            "useFrameworks": "static"
           }
         }
       ]
