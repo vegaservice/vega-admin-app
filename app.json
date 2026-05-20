@@ -33,7 +33,6 @@
     },
     "plugins": [
       "@react-native-firebase/app",
-      "react-native-webview",
       "@react-native-firebase/auth",
       "@react-native-firebase/messaging",
       [
