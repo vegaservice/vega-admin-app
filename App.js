@@ -1,7 +1,7 @@
 // ████ VEGA ADMIN APP ████
-// Super Admin Dashboard — v2.0 May 2026
+// Super Admin Dashboard — v3.0 May 2026
 // Mahesh Pappala — VEGA Home Services, Visakhapatnam
-// FIX: All tab components moved OUTSIDE App() → no keyboard dismissal on typing
+// NEW: Live Map, Services Management, Customer Profiles, Notifications
 
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import {
@@ -14,6 +14,9 @@ import {
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
+
+import MapTab  from './src/MapTab';
+import MoreTab from './src/MoreTab';
 
 const { width: W } = Dimensions.get('window');
 
@@ -1200,12 +1203,11 @@ const ReviewsTab = memo(({ bookings }) => {
 // MAIN APP
 // ══════════════════════════════════════════════════
 const TABS = [
-  { id:'dashboard', icon:'🏠', label:'Home' },
+  { id:'dashboard', icon:'🏠', label:'Home'   },
   { id:'orders',    icon:'📦', label:'Orders' },
-  { id:'employees', icon:'👥', label:'Team' },
-  { id:'finance',   icon:'💰', label:'Finance' },
-  { id:'offers',    icon:'🎟️', label:'Offers' },
-  { id:'reviews',   icon:'⭐', label:'Reviews' },
+  { id:'map',       icon:'🗺️', label:'Map'    },
+  { id:'employees', icon:'👥', label:'Team'   },
+  { id:'more',      icon:'⚙️', label:'More'   },
 ];
 
 export default function App() {
@@ -1493,23 +1495,21 @@ export default function App() {
               onRefresh={onRefresh} setSelBooking={setSelBooking}
             />
           )}
+          {tab==='map' && (
+            <MapTab employees={employees} bookings={bookings}/>
+          )}
           {tab==='employees' && (
             <EmployeesTab
               employees={employees} bookings={bookings}
               refreshing={refreshing} onRefresh={onRefresh}
-              onAddEmployee={null}
-              onToggleAvailable={null}
-              onRemoveEmployee={null}
+              onAddEmployee={null} onToggleAvailable={null} onRemoveEmployee={null}
             />
           )}
-          {tab==='finance' && (
-            <FinanceTab bookings={bookings} refreshing={refreshing} onRefresh={onRefresh}/>
-          )}
-          {tab==='offers' && (
-            <OffersTab promos={promos} onTogglePromo={handleTogglePromo} onAddPromo={handleAddPromo}/>
-          )}
-          {tab==='reviews' && (
-            <ReviewsTab bookings={bookings}/>
+          {tab==='more' && (
+            <MoreTab
+              bookings={bookings} employees={employees} customers={customers}
+              promos={promos} onTogglePromo={handleTogglePromo} onAddPromo={handleAddPromo}
+            />
           )}
         </View>
 
