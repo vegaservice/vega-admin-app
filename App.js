@@ -1282,8 +1282,11 @@ export default function App() {
             setScreen('main'); return;
           }
         }catch(e){ console.log('session restore:',e); }
+        // Authenticated but not an admin. Don't interrupt active OTP flow.
+        setScreen(prev=>prev==='otp'?prev:'login');
+      } else {
+        setScreen(prev=>prev==='otp'?prev:'login');
       }
-      setScreen('login');
     });
     return () => unsubAuth();
   }, []);
