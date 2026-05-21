@@ -147,10 +147,12 @@ const WorkerDetailModal = memo(({ worker, visible, onClose, bookings, onToggleAv
   if (!worker) return null;
   const ws = WORKER_STATUS_COLORS[worker.currentStatus || (worker.isAvailable ? 'idle' : 'offline')];
   const workerJobs = bookings.filter(b => b.assignedWorkerId === worker.id);
-  const todayStr = new Date().toDateString();
+  const todayStr = new Date().toISOString().split('T')[0];
   const todayJobs = workerJobs.filter(b => {
+    if(b.bookingMode==='instant') return true;
+    if(b.scheduledDate) return b.scheduledDate === todayStr;
     const d = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt||0);
-    return d.toDateString() === todayStr;
+    return d.toISOString().split('T')[0] === todayStr;
   });
   const completedToday = todayJobs.filter(b => b.status === 'completed').length;
 
@@ -609,11 +611,13 @@ const AddPromoModal = memo(({ visible, onClose, onSave }) => {
 // ══════════════════════════════════════════════════
 // DASHBOARD TAB (top level)
 // ══════════════════════════════════════════════════
-const DashboardTab = memo(({ bookings, employees, customers, refreshing, onRefresh, setTab, setSelBooking }) => {
-  const todayStr = new Date().toDateString();
+const DashboardTab = memo(({ bookings, employees, customers, refreshing, onRefresh, setTab, setSelBooking, serviceInterests=[] }) => {
+  const todayStr = new Date().toISOString().split('T')[0];
   const todayBookings = bookings.filter(b => {
+    if(b.bookingMode==='instant') return true;
+    if(b.scheduledDate) return b.scheduledDate === todayStr;
     const d = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt||0);
-    return d.toDateString() === todayStr;
+    return d.toISOString().split('T')[0] === todayStr;
   });
   const todayRevenue  = todayBookings.reduce((s,b) => s + (b.total||0), 0);
   const pendingCount  = bookings.filter(b => b.status === 'confirmed').length;
@@ -714,6 +718,27 @@ const DashboardTab = memo(({ bookings, employees, customers, refreshing, onRefre
           <View style={{ alignItems:'center', padding:40 }}>
             <Text style={{ fontSize:48 }}>📦</Text>
             <Text style={{ color:C.muted, marginTop:12 }}>No bookings yet</Text>
+          </View>
+        )}
+
+        {/* ── Service Demand (Notify Me interests) ── */}
+        {serviceInterests.length > 0 && (
+          <View style={{ marginTop:8 }}>
+            <Text style={{ color:C.text, fontWeight:'800', fontSize:15, marginBottom:12 }}>🔔 Service Demand (Notify Me)</Text>
+            {(() => {
+              const grouped = serviceInterests.reduce((acc, s) => {
+                acc[s.serviceName] = (acc[s.serviceName]||0) + 1; return acc;
+              }, {});
+              return Object.entries(grouped).sort((a,b)=>b[1]-a[1]).map(([name, count]) => (
+                <View key={name} style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between',
+                  backgroundColor:C.card, borderRadius:14, padding:12, marginBottom:8, borderWidth:0.5, borderColor:C.border2 }}>
+                  <Text style={{ color:C.text2, fontSize:13 }}>{name}</Text>
+                  <View style={{ backgroundColor:C.orangeBg, borderRadius:20, paddingHorizontal:12, paddingVertical:4, borderWidth:0.5, borderColor:C.orangeBd }}>
+                    <Text style={{ color:C.orange, fontWeight:'800', fontSize:13 }}>{count} interested</Text>
+                  </View>
+                </View>
+              ));
+            })()}
           </View>
         )}
       </View>
@@ -1220,17 +1245,30 @@ export default function App() {
   const [refreshing, setRefreshing]= useState(false);
 
   // Data
-  const [bookings,   setBookings]  = useState([]);
-  const [employees,  setEmployees] = useState([]);
-  const [customers,  setCustomers] = useState([]);
-  const [promos,     setPromos]    = useState({});
+  const [bookings,        setBookings]       = useState([]);
+  const [employees,       setEmployees]      = useState([]);
+  const [customers,       setCustomers]      = useState([]);
+  const [promos,          setPromos]         = useState({});
+  const [serviceInterests,setServiceInterests] = useState([]);
   const [selBooking, setSelBooking]= useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue:1, duration:1200, useNativeDriver:true }).start();
-    setTimeout(() => setScreen('login'), 2500);
+    // ── Session Restore ───────────────────────────────────────
+    const unsubAuth = auth().onAuthStateChanged(async(fUser) => {
+      if(fUser){
+        try{
+          const ph = fUser.phoneNumber?.replace('+91','');
+          if(ADMIN_PHONES.includes(ph)){
+            setScreen('main'); return;
+          }
+        }catch(e){ console.log('session restore:',e); }
+      }
+      setScreen('login');
+    });
+    return () => unsubAuth();
   }, []);
 
   // Real-time listeners
@@ -1245,6 +1283,15 @@ export default function App() {
         .onSnapshot(
           snap => setBookings(snap.docs.map(d=>({id:d.id,...d.data()}))),
           err  => console.error('bookings:', err)
+        )
+    );
+    // Service Interests (Notify Me clicks from customer app)
+    unsubs.push(
+      firestore().collection('service_interests')
+        .orderBy('createdAt','desc').limit(200)
+        .onSnapshot(
+          snap => setServiceInterests(snap.docs.map(d=>({id:d.id,...d.data()}))),
+          err  => console.error('service_interests:', err)
         )
     );
 
@@ -1487,6 +1534,7 @@ export default function App() {
               bookings={bookings} employees={employees} customers={customers}
               refreshing={refreshing} onRefresh={onRefresh}
               setTab={setTab} setSelBooking={setSelBooking}
+              serviceInterests={serviceInterests}
             />
           )}
           {tab==='orders' && (
