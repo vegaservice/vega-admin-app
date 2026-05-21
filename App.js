@@ -333,12 +333,27 @@ const BookingDetailModal = memo(({ selBooking, setSelBooking, employees, onAssig
 
           <View style={S.detailCard}>
             <Text style={S.detailTitle}>🛠 SERVICES</Text>
-            {(selBooking.items||[]).map((item,i)=>(
+            {selBooking.carType&&(
+              <View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8,backgroundColor:C.goldBg||'#FDF6E3',borderRadius:8,padding:8}}>
+                <Text style={{fontSize:14}}>🚗</Text>
+                <Text style={{color:C.gold||'#9A6B10',fontWeight:'700',fontSize:13}}>Car Type: {selBooking.carType.charAt(0).toUpperCase()+selBooking.carType.slice(1)}</Text>
+              </View>
+            )}
+            {(selBooking.items||[{name:selBooking.serviceType||'Home Cleaning'}]).map((item,i)=>(
               <View key={i} style={{ flexDirection:'row', justifyContent:'space-between', marginTop:8 }}>
-                <Text style={{ color:C.text2, fontSize:13, flex:1 }}>{item.name}</Text>
-                <Text style={{ color:C.orange, fontWeight:'700' }}>₹{item.price}</Text>
+                <Text style={{ color:C.text2, fontSize:13, flex:1 }}>{item.name}{item.variant?` (${item.variant})`:''}</Text>
+                <Text style={{ color:C.orange, fontWeight:'700' }}>{item.price?`₹${item.price}`:''}</Text>
               </View>
             ))}
+            {selBooking.bookingMode==='recurring'&&selBooking.recurFreq&&(
+              <View style={{marginTop:12,backgroundColor:C.goldBg||'#FDF6E3',borderRadius:10,padding:10}}>
+                <Text style={{color:C.gold||'#9A6B10',fontWeight:'800',fontSize:13,marginBottom:4}}>🔄 Recurring Plan</Text>
+                <Text style={{color:C.text2,fontSize:13}}>Frequency: {selBooking.recurFreq}</Text>
+                <Text style={{color:C.text2,fontSize:13}}>Duration: {selBooking.recurDuration||'1 month'}</Text>
+                <Text style={{color:C.text2,fontSize:13}}>Total visits: {selBooking.recurVisits||4}</Text>
+                {selBooking.isRecurringChild&&<Text style={{color:C.muted,fontSize:12,marginTop:2}}>Visit #{(selBooking.recurIndex||0)+1} of {selBooking.recurVisits||4}</Text>}
+              </View>
+            )}
           </View>
 
           <View style={S.detailCard}>
@@ -1243,6 +1258,8 @@ export default function App() {
   const [confirm,    setConfirm]   = useState(null);
   const [loading,    setLoading]   = useState(false);
   const [refreshing, setRefreshing]= useState(false);
+  const [phoneError, setPhoneError]= useState('');
+  const [otpError,   setOtpError]  = useState('');
 
   // Data
   const [bookings,        setBookings]       = useState([]);
@@ -1337,21 +1354,22 @@ export default function App() {
   // ── AUTH
   const sendOTP = async () => {
     const clean = phone.replace(/\D/g,'');
-    if (clean.length < 10) { Alert.alert('Invalid', 'Enter your 10-digit mobile number'); return; }
+    setPhoneError('');
+    if (clean.length < 10) { setPhoneError('Enter your 10-digit mobile number'); return; }
     if (!ADMIN_PHONES.includes(clean)) {
-      Alert.alert('Access Denied', 'This number is not authorized for VEGA Admin.');
+      setPhoneError('This number is not authorized for VEGA Admin. Contact Mahesh.');
       return;
     }
     setLoading(true);
     try {
       const c = await auth().signInWithPhoneNumber(`+91${clean}`);
       setConfirm(c); setLoading(false); setScreen('otp');
-    } catch(e) { setLoading(false); Alert.alert('OTP Failed', e.message); }
+    } catch(e) { setLoading(false); setPhoneError(e.message||'Could not send OTP. Try again.'); }
   };
 
   const verifyOTP = async () => {
     if (!otpVal || otpVal.length < 6) return;
-    setLoading(true);
+    setOtpError(''); setLoading(true);
     try {
       await confirm.confirm(otpVal);
       setLoading(false); setScreen('main');
@@ -1366,7 +1384,14 @@ export default function App() {
           );
         }
       } catch(e) { console.log('FCM:', e.message); }
-    } catch(e) { setLoading(false); Alert.alert('Wrong OTP', e.message); }
+    } catch(e) {
+      setLoading(false);
+      const code = e?.code||'';
+      if(code.includes('invalid-verification-code')||code.includes('invalid-code')) setOtpError('Wrong OTP. Please check and try again.');
+      else if(code.includes('code-expired')) setOtpError('OTP expired. Go back and request a new one.');
+      else if(code.includes('session-expired')) setOtpError('Session expired. Go back and request OTP again.');
+      else setOtpError(e.message||'Verification failed. Try again.');
+    }
   };
 
   const onRefresh = useCallback(async () => {
@@ -1451,10 +1476,11 @@ export default function App() {
           <View style={S.phoneRow}>
             <Text style={S.flag}>🇮🇳 +91</Text>
             <TextInput style={S.phoneInp} placeholder="9441270570" placeholderTextColor={C.muted}
-              keyboardType="number-pad" maxLength={10} value={phone} onChangeText={setPhone} color={C.text}/>
+              keyboardType="number-pad" maxLength={10} value={phone} onChangeText={(v)=>{setPhone(v);setPhoneError('');}} color={C.text}/>
           </View>
+          {phoneError?<Text style={{color:C.red,fontSize:13,marginTop:8,marginBottom:4,lineHeight:18}}>{phoneError}</Text>:null}
 
-          <TouchableOpacity style={[S.btn, phone.length<10&&{opacity:0.4}, {marginTop:24}]}
+          <TouchableOpacity style={[S.btn, phone.length<10&&{opacity:0.4}, {marginTop:16}]}
             disabled={phone.length<10||loading} onPress={sendOTP}>
             {loading ? <ActivityIndicator color="#FFF"/> : <Text style={S.btnT}>Send OTP →</Text>}
           </TouchableOpacity>
@@ -1482,9 +1508,10 @@ export default function App() {
           <TextInput
             style={[S.inp, { fontSize:32, fontWeight:'900', letterSpacing:16, textAlign:'center', paddingVertical:20 }]}
             placeholder="——————" placeholderTextColor={C.border2}
-            keyboardType="number-pad" maxLength={6} value={otpVal} onChangeText={setOtpVal} color={C.text}/>
+            keyboardType="number-pad" maxLength={6} value={otpVal} onChangeText={(v)=>{setOtpVal(v);setOtpError('');}} color={C.text}/>
+          {otpError?<Text style={{color:C.red,fontSize:13,marginTop:10,lineHeight:18,textAlign:'center'}}>{otpError}</Text>:null}
 
-          <TouchableOpacity style={[S.btn, otpVal.length<6&&{opacity:0.4}, {marginTop:24}]}
+          <TouchableOpacity style={[S.btn, otpVal.length<6&&{opacity:0.4}, {marginTop:16}]}
             disabled={otpVal.length<6||loading} onPress={verifyOTP}>
             {loading ? <ActivityIndicator color="#FFF"/> : <Text style={S.btnT}>Verify & Enter Admin →</Text>}
           </TouchableOpacity>
