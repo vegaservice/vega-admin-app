@@ -318,7 +318,8 @@ const ServicesScreen = memo(({ onBack }) => {
 const CustomerDetailModal = memo(({ customer, visible, onClose, bookings }) => {
   if (!customer) return null;
   const myBookings = bookings.filter(b => b.userId === customer.id || b.userPhone === customer.phone);
-  const totalSpent = myBookings.reduce((s,b)=>s+(b.total||0),0);
+  // Exclude child visits from spend total — payment is on parent
+  const totalSpent = myBookings.filter(b=>!b.isChildVisit&&!b.isRecurringChild).reduce((s,b)=>s+(b.totalPaid||b.total||0),0);
   const completed  = myBookings.filter(b=>b.status==='completed').length;
 
   return (
@@ -451,7 +452,8 @@ const CustomersScreen = memo(({ bookings, onBack }) => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.orange}/>}>
           {filtered.map(c=>{
             const myBookings = bookings.filter(b=>b.userId===c.id||b.userPhone===(c.phone||c.phoneNumber));
-            const totalSpent = myBookings.reduce((s,b)=>s+(b.total||0),0);
+            // Exclude child visits — payment is counted on parent
+            const totalSpent = myBookings.filter(b=>!b.isChildVisit&&!b.isRecurringChild).reduce((s,b)=>s+(b.totalPaid||b.total||0),0);
             return (
               <TouchableOpacity key={c.id} style={[S.card,{marginBottom:10,flexDirection:'row',alignItems:'center'}]}
                 onPress={()=>{setSelCustomer(c);setDetailVis(true);}}>
@@ -653,22 +655,24 @@ const NotificationsScreen = memo(({ onBack, employees, customers }) => {
 // FINANCE SCREEN (same as before but as a proper screen)
 // ════════════════════════════════════════════════════
 const FinanceScreen = memo(({ bookings, onBack }) => {
-  const completed    = bookings.filter(b=>b.status==='completed');
-  const totalRevenue = bookings.reduce((s,b)=>s+(b.total||0),0);
-  const totalCompleted = completed.reduce((s,b)=>s+(b.total||0),0);
-  const totalPromo   = bookings.reduce((s,b)=>s+(b.promoDiscount||0),0);
-  const totalWallet  = bookings.reduce((s,b)=>s+(b.walletUsed||0),0);
+  // Exclude child visits from revenue — already counted in parent's totalPaid
+  const revenueBookings = bookings.filter(b => !b.isChildVisit && !b.isRecurringChild);
+  const completed    = revenueBookings.filter(b=>b.status==='completed');
+  const totalRevenue = revenueBookings.reduce((s,b)=>s+(b.totalPaid||b.total||0),0);
+  const totalCompleted = completed.reduce((s,b)=>s+(b.totalPaid||b.total||0),0);
+  const totalPromo   = revenueBookings.reduce((s,b)=>s+(b.promoDiscount||0),0);
+  const totalWallet  = revenueBookings.reduce((s,b)=>s+(b.walletUsed||0),0);
 
   const weekData = Array.from({length:7},(_,i)=>{
     const d=new Date(); d.setDate(d.getDate()-i);
     const dayStr=d.toDateString();
-    const dayBookings=bookings.filter(b=>{
+    const dayBookings=revenueBookings.filter(b=>{
       const bd=b.createdAt?.toDate?b.createdAt.toDate():new Date(b.createdAt||0);
       return bd.toDateString()===dayStr;
     });
     return{
       label:i===0?'Today':['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()],
-      revenue:dayBookings.reduce((s,b)=>s+(b.total||0),0),
+      revenue:dayBookings.reduce((s,b)=>s+(b.totalPaid||b.total||0),0),
       count:dayBookings.length,
     };
   }).reverse();
@@ -689,7 +693,7 @@ const FinanceScreen = memo(({ bookings, onBack }) => {
           <View style={[S.card,{flex:1,alignItems:'center'}]}>
             <Text style={{fontSize:10,color:C.muted,marginBottom:6,letterSpacing:1}}>TOTAL REVENUE</Text>
             <Text style={{fontSize:24,fontWeight:'900',color:C.gold}}>{fmt(totalRevenue)}</Text>
-            <Text style={{fontSize:11,color:C.muted,marginTop:4}}>{bookings.length} orders</Text>
+            <Text style={{fontSize:11,color:C.muted,marginTop:4}}>{revenueBookings.length} orders</Text>
           </View>
           <View style={[S.card,{flex:1,alignItems:'center'}]}>
             <Text style={{fontSize:10,color:C.muted,marginBottom:6,letterSpacing:1}}>COMPLETED</Text>

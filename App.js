@@ -301,10 +301,17 @@ const WorkerDetailModal = memo(({ worker, visible, onClose, bookings, onToggleAv
 // ══════════════════════════════════════════════════
 // BOOKING DETAIL MODAL (top level)
 // ══════════════════════════════════════════════════
-const BookingDetailModal = memo(({ selBooking, setSelBooking, employees, onAssign, onUpdateStatus }) => {
+const BookingDetailModal = memo(({ selBooking, setSelBooking, employees, onAssign, onUpdateStatus, bookings=[] }) => {
   const [assignModal, setAssignModal] = useState(false);
+  const [childrenExpanded, setChildrenExpanded] = useState(false);
   if (!selBooking) return null;
   const sc = STATUS_COLORS[selBooking.status] || STATUS_COLORS.confirmed;
+  // Find child visits for this parent (new schema + legacy)
+  const parentKey = selBooking.orderId || selBooking.id;
+  const childVisits = bookings.filter(b =>
+    (b.parentSubscriptionId && b.parentSubscriptionId === parentKey) ||
+    (b.parentOrderId && b.parentOrderId === parentKey)
+  ).sort((a,b)=>(a.visitNumber||a.recurIndex||0)-(b.visitNumber||b.recurIndex||0));
 
   return (
     <Modal visible={!!selBooking} animationType="slide" presentationStyle="pageSheet">
@@ -345,6 +352,20 @@ const BookingDetailModal = memo(({ selBooking, setSelBooking, employees, onAssig
                 <Text style={{ color:C.orange, fontWeight:'700' }}>{item.price?`₹${item.price}`:''}</Text>
               </View>
             ))}
+            {selBooking.bookingMode==='subscription'&&(
+              <View style={{marginTop:12,backgroundColor:C.purpleBg,borderRadius:10,padding:10}}>
+                <Text style={{color:C.purple,fontWeight:'800',fontSize:13,marginBottom:4}}>🔁 Subscription Plan</Text>
+                <Text style={{color:C.text2,fontSize:13}}>Total visits: {selBooking.totalVisits||selBooking.subscriptionDays?.length||'?'}</Text>
+                {selBooking.subscriptionStartDate&&<Text style={{color:C.text2,fontSize:13,marginTop:2}}>Start: {selBooking.subscriptionStartDate}</Text>}
+                {selBooking.subscriptionEndDate&&<Text style={{color:C.text2,fontSize:13,marginTop:2}}>End: {selBooking.subscriptionEndDate}</Text>}
+                {selBooking.subscriptionDiscount>0&&<Text style={{color:C.green,fontSize:12,marginTop:2}}>Subscription discount: ₹{selBooking.subscriptionDiscount}</Text>}
+              </View>
+            )}
+            {selBooking.bookingMode==='scheduled'&&selBooking.totalVisits>1&&(
+              <View style={{marginTop:12,backgroundColor:C.blueBg,borderRadius:10,padding:10}}>
+                <Text style={{color:C.blue,fontWeight:'800',fontSize:13,marginBottom:4}}>📅 Multi-date Booking · {selBooking.totalVisits} visits</Text>
+              </View>
+            )}
             {selBooking.bookingMode==='recurring'&&selBooking.recurFreq&&(
               <View style={{marginTop:12,backgroundColor:C.goldBg||'#FDF6E3',borderRadius:10,padding:10}}>
                 <Text style={{color:C.gold||'#9A6B10',fontWeight:'800',fontSize:13,marginBottom:4}}>🔄 Recurring Plan</Text>
@@ -356,12 +377,56 @@ const BookingDetailModal = memo(({ selBooking, setSelBooking, employees, onAssig
             )}
           </View>
 
+          {/* Repair warning if the child batch failed during checkout */}
+          {selBooking.needsChildVisitsRepair && (
+            <View style={[S.detailCard,{borderColor:C.redBd,borderWidth:1,backgroundColor:C.redBg}]}>
+              <Text style={[S.detailTitle,{color:C.red}]}>⚠️ NEEDS REPAIR — CHILD VISITS</Text>
+              <Text style={{color:C.text2,fontSize:13,marginTop:8,lineHeight:18}}>
+                Child visit creation failed during checkout. Only {selBooking.childVisitsAttempted||0} of {selBooking.totalVisits||'?'} child docs were created.
+              </Text>
+              <Text style={{color:C.red,fontSize:12,marginTop:6,fontWeight:'700'}}>
+                Manually create missing visits from subscription dates, then clear this flag.
+              </Text>
+            </View>
+          )}
+
+          {/* Child visits expandable list (only for parent docs) */}
+          {childVisits.length > 0 && !selBooking.isChildVisit && !selBooking.isRecurringChild && (
+            <View style={S.detailCard}>
+              <TouchableOpacity onPress={()=>setChildrenExpanded(v=>!v)}
+                style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
+                <Text style={S.detailTitle}>📅 CHILD VISITS ({childVisits.length})</Text>
+                <Text style={{color:C.orange,fontSize:14}}>{childrenExpanded?'▼':'▶'}</Text>
+              </TouchableOpacity>
+              {childrenExpanded && childVisits.map(cv => {
+                const cvs = STATUS_COLORS[cv.status] || STATUS_COLORS.confirmed;
+                return (
+                  <View key={cv.id} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:10,paddingBottom:8,borderBottomWidth:0.3,borderBottomColor:C.border}}>
+                    <View style={{flex:1}}>
+                      <Text style={{color:C.text2,fontSize:13,fontWeight:'600'}}>Visit {cv.visitNumber||((cv.recurIndex||0)+1)}</Text>
+                      <Text style={{color:C.muted,fontSize:11,marginTop:2}}>{cv.scheduledDate||cv.slot||'—'}</Text>
+                    </View>
+                    <View style={{paddingHorizontal:8,paddingVertical:2,borderRadius:10,backgroundColor:cvs.bg,borderWidth:0.5,borderColor:cvs.border}}>
+                      <Text style={{color:cvs.text,fontSize:10,fontWeight:'700'}}>{cv.status}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
           <View style={S.detailCard}>
             <Text style={S.detailTitle}>💰 BILL</Text>
             <View style={{ flexDirection:'row', justifyContent:'space-between', marginTop:8 }}>
               <Text style={{ color:C.muted }}>Subtotal</Text>
               <Text style={{ color:C.text2 }}>₹{selBooking.subtotal||0}</Text>
             </View>
+            {selBooking.subscriptionDiscount>0 && (
+              <View style={{ flexDirection:'row', justifyContent:'space-between', marginTop:4 }}>
+                <Text style={{ color:C.muted }}>Subscription Discount</Text>
+                <Text style={{ color:C.green }}>-₹{selBooking.subscriptionDiscount}</Text>
+              </View>
+            )}
             {selBooking.promoDiscount>0 && (
               <View style={{ flexDirection:'row', justifyContent:'space-between', marginTop:4 }}>
                 <Text style={{ color:C.muted }}>Promo ({selBooking.promoCode})</Text>
@@ -377,8 +442,11 @@ const BookingDetailModal = memo(({ selBooking, setSelBooking, employees, onAssig
             <View style={{ height:1, backgroundColor:C.border, marginVertical:10 }}/>
             <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
               <Text style={{ color:C.text, fontWeight:'700', fontSize:16 }}>Total</Text>
-              <Text style={{ color:C.orange, fontWeight:'900', fontSize:18 }}>₹{selBooking.total}</Text>
+              <Text style={{ color:C.orange, fontWeight:'900', fontSize:18 }}>₹{selBooking.totalPaid||selBooking.total}</Text>
             </View>
+            {selBooking.isChildVisit && (
+              <Text style={{color:C.muted,fontSize:11,marginTop:6,fontStyle:'italic'}}>Child visit — payment counted on parent order</Text>
+            )}
           </View>
 
           <View style={S.detailCard}>
@@ -628,17 +696,20 @@ const AddPromoModal = memo(({ visible, onClose, onSave }) => {
 // ══════════════════════════════════════════════════
 const DashboardTab = memo(({ bookings, employees, customers, refreshing, onRefresh, setTab, setSelBooking, serviceInterests=[] }) => {
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayBookings = bookings.filter(b => {
+  // Revenue calc must exclude child visits — they're already counted in parent's totalPaid
+  const revenueBookings = bookings.filter(b => !b.isChildVisit && !b.isRecurringChild);
+  const todayBookings = revenueBookings.filter(b => {
     if(b.bookingMode==='instant') return true;
     if(b.scheduledDate) return b.scheduledDate === todayStr;
     const d = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt||0);
     return d.toISOString().split('T')[0] === todayStr;
   });
-  const todayRevenue  = todayBookings.reduce((s,b) => s + (b.total||0), 0);
-  const pendingCount  = bookings.filter(b => b.status === 'confirmed').length;
+  const todayRevenue  = todayBookings.reduce((s,b) => s + (b.totalPaid || b.total || 0), 0);
+  // Pending count: parent docs only (assigning parent cascades to children)
+  const pendingCount  = revenueBookings.filter(b => b.status === 'confirmed').length;
   const activeCount   = employees.filter(e => e.isActive!==false && e.isAvailable).length;
   const workingCount  = employees.filter(e => e.currentStatus === 'working').length;
-  const totalRevenue  = bookings.reduce((s,b) => s + (b.total||0), 0);
+  const totalRevenue  = revenueBookings.reduce((s,b) => s + (b.totalPaid || b.total || 0), 0);
   const hour          = new Date().getHours();
 
   return (
@@ -710,7 +781,7 @@ const DashboardTab = memo(({ bookings, employees, customers, refreshing, onRefre
             <Text style={{ color:C.orange, fontSize:13 }}>See all →</Text>
           </TouchableOpacity>
         </View>
-        {bookings.slice(0,5).map(b => {
+        {revenueBookings.slice(0,5).map(b => {
           const sc = STATUS_COLORS[b.status] || STATUS_COLORS.confirmed;
           return (
             <TouchableOpacity key={b.id} style={[S.card, { flexDirection:'row', alignItems:'center', marginBottom:10 }]}
@@ -725,11 +796,11 @@ const DashboardTab = memo(({ bookings, employees, customers, refreshing, onRefre
                 <Text style={{ color:C.text2, fontSize:13 }}>{b.userName} · {b.userPhone}</Text>
                 <Text style={{ color:C.muted, fontSize:11, marginTop:2 }}>{timeAgo(b.createdAt)}</Text>
               </View>
-              <Text style={{ color:C.orange, fontWeight:'900', fontSize:16 }}>₹{b.total}</Text>
+              <Text style={{ color:C.orange, fontWeight:'900', fontSize:16 }}>₹{b.totalPaid||b.total}</Text>
             </TouchableOpacity>
           );
         })}
-        {bookings.length === 0 && (
+        {revenueBookings.length === 0 && (
           <View style={{ alignItems:'center', padding:40 }}>
             <Text style={{ fontSize:48 }}>📦</Text>
             <Text style={{ color:C.muted, marginTop:12 }}>No bookings yet</Text>
@@ -768,7 +839,9 @@ const DashboardTab = memo(({ bookings, employees, customers, refreshing, onRefre
 const OrdersTab = memo(({ bookings, refreshing, onRefresh, setSelBooking }) => {
   const [filter, setFilter] = useState('All');
   const filters = ['All','confirmed','assigned','on_the_way','in_progress','completed','cancelled'];
-  const filtered = filter==='All' ? bookings : bookings.filter(b=>b.status===filter);
+  // Hide child visits — admin sees ONE entry per subscription/multi-date booking (the parent)
+  const parentBookings = bookings.filter(b => !b.isChildVisit && !b.isRecurringChild);
+  const filtered = filter==='All' ? parentBookings : parentBookings.filter(b=>b.status===filter);
 
   return (
     <View style={{ flex:1 }}>
@@ -806,6 +879,21 @@ const OrdersTab = memo(({ bookings, refreshing, onRefresh, setSelBooking }) => {
                   <Text style={{ color:C.muted, fontSize:12 }}>📞 {b.userPhone}</Text>
                   <Text style={{ color:C.text2, fontSize:12, marginTop:4 }}>📍 {b.addressFull||'No address'}</Text>
                   <Text style={{ color:C.muted, fontSize:11, marginTop:4 }}>📅 {b.slot}</Text>
+                  {b.bookingMode==='subscription' && (
+                    <View style={{ backgroundColor:C.purpleBg, paddingHorizontal:8, paddingVertical:2, borderRadius:8, borderWidth:0.5, borderColor:'#3A1060', alignSelf:'flex-start', marginTop:4 }}>
+                      <Text style={{ color:C.purple, fontSize:10, fontWeight:'700' }}>🔁 Subscription · {b.totalVisits||b.subscriptionDays?.length||'?'} visits</Text>
+                    </View>
+                  )}
+                  {b.bookingMode==='scheduled' && b.totalVisits>1 && (
+                    <View style={{ backgroundColor:C.blueBg, paddingHorizontal:8, paddingVertical:2, borderRadius:8, borderWidth:0.5, borderColor:'#1A3060', alignSelf:'flex-start', marginTop:4 }}>
+                      <Text style={{ color:C.blue, fontSize:10, fontWeight:'700' }}>📅 {b.totalVisits} visits</Text>
+                    </View>
+                  )}
+                  {b.needsChildVisitsRepair && (
+                    <View style={{ backgroundColor:C.redBg, paddingHorizontal:8, paddingVertical:2, borderRadius:8, borderWidth:0.5, borderColor:C.redBd, alignSelf:'flex-start', marginTop:4 }}>
+                      <Text style={{ color:C.red, fontSize:10, fontWeight:'700' }}>⚠️ Needs Repair</Text>
+                    </View>
+                  )}
                   {b.bookingMode==='recurring' && b.recurFreq && (
                     <View style={{ backgroundColor:C.goldBg, paddingHorizontal:8, paddingVertical:2, borderRadius:8, borderWidth:0.5, borderColor:'#4A3010', alignSelf:'flex-start', marginTop:4 }}>
                       <Text style={{ color:C.gold, fontSize:10, fontWeight:'700' }}>🔄 {b.recurFreq}</Text>
@@ -1020,23 +1108,25 @@ const EmployeesTab = memo(({ employees, bookings, refreshing, onRefresh, onAddEm
 // FINANCE TAB (top level)
 // ══════════════════════════════════════════════════
 const FinanceTab = memo(({ bookings, refreshing, onRefresh }) => {
-  const completed    = bookings.filter(b=>b.status==='completed');
-  const totalRevenue = bookings.reduce((s,b)=>s+(b.total||0),0);
-  const totalCompleted = completed.reduce((s,b)=>s+(b.total||0),0);
-  const totalPromo   = bookings.reduce((s,b)=>s+(b.promoDiscount||0),0);
-  const totalWallet  = bookings.reduce((s,b)=>s+(b.walletUsed||0),0);
-  const totalFees    = bookings.reduce((s,b)=>s+(b.platformFee||0),0);
+  // Revenue calc must exclude child visits — they're already counted in parent's totalPaid
+  const revenueBookings = bookings.filter(b => !b.isChildVisit && !b.isRecurringChild);
+  const completed    = revenueBookings.filter(b=>b.status==='completed');
+  const totalRevenue = revenueBookings.reduce((s,b)=>s+(b.totalPaid||b.total||0),0);
+  const totalCompleted = completed.reduce((s,b)=>s+(b.totalPaid||b.total||0),0);
+  const totalPromo   = revenueBookings.reduce((s,b)=>s+(b.promoDiscount||0),0);
+  const totalWallet  = revenueBookings.reduce((s,b)=>s+(b.walletUsed||0),0);
+  const totalFees    = revenueBookings.reduce((s,b)=>s+(b.platformFee||0),0);
 
   const weekData = Array.from({length:7},(_,i)=>{
     const d = new Date(); d.setDate(d.getDate()-i);
     const dayStr = d.toDateString();
-    const dayBookings = bookings.filter(b=>{
+    const dayBookings = revenueBookings.filter(b=>{
       const bd = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt||0);
       return bd.toDateString()===dayStr;
     });
     return {
       label: i===0?'Today':['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()],
-      revenue: dayBookings.reduce((s,b)=>s+(b.total||0),0),
+      revenue: dayBookings.reduce((s,b)=>s+(b.totalPaid||b.total||0),0),
       count: dayBookings.length,
     };
   }).reverse();
@@ -1051,7 +1141,7 @@ const FinanceTab = memo(({ bookings, refreshing, onRefresh }) => {
         <View style={[S.card, { flex:1, alignItems:'center' }]}>
           <Text style={{ fontSize:10, color:C.muted, marginBottom:6, letterSpacing:1 }}>TOTAL REVENUE</Text>
           <Text style={{ fontSize:24, fontWeight:'900', color:C.gold }}>{fmt(totalRevenue)}</Text>
-          <Text style={{ fontSize:11, color:C.muted, marginTop:4 }}>{bookings.length} orders</Text>
+          <Text style={{ fontSize:11, color:C.muted, marginTop:4 }}>{revenueBookings.length} orders</Text>
         </View>
         <View style={[S.card, { flex:1, alignItems:'center' }]}>
           <Text style={{ fontSize:10, color:C.muted, marginBottom:6, letterSpacing:1 }}>COMPLETED</Text>
@@ -1422,7 +1512,34 @@ export default function App() {
     });
     if (ok) {
       await fbUpdate('workers', pro.id, { isAvailable:false, currentJobId:booking.id, currentStatus:'working' }).catch(()=>{});
-      Alert.alert('✅ Assigned', `${pro.name} assigned to order ${booking.orderId}`);
+      // Cascade to child visits (subscription / multi-date scheduled / legacy recurring)
+      let childCount = 0;
+      try {
+        const parentKey = booking.orderId || booking.id;
+        const childData = {
+          professional: { id:pro.id, name:pro.name, phone:pro.phone, rating:pro.ratingAvg||4.9 },
+          assignedWorkerId: pro.id, assignedWorkerName: pro.name, assignedWorkerPhone: pro.phone,
+          status: 'assigned',
+          assignedAt: firestore.FieldValue.serverTimestamp(),
+          updatedAt: firestore.FieldValue.serverTimestamp(),
+        };
+        const newSnap = await firestore().collection('bookings').where('parentSubscriptionId','==',parentKey).get();
+        const legacySnap = await firestore().collection('bookings').where('parentOrderId','==',parentKey).get();
+        const allChildren = [...newSnap.docs, ...legacySnap.docs];
+        // Safety: skip visits already in_progress / completed / cancelled
+        const reassignable = allChildren.filter(d => {
+          const st = (d.data().status || '').toLowerCase();
+          return st === 'confirmed' || st === 'assigned' || st === '';
+        });
+        if (reassignable.length > 0) {
+          const batch = firestore().batch();
+          reassignable.forEach(d => batch.update(d.ref, childData));
+          await batch.commit();
+          childCount = reassignable.length;
+        }
+      } catch(e) { console.log('cascade children error:', e); }
+      const extra = childCount > 0 ? ` (+${childCount} future visits)` : '';
+      Alert.alert('✅ Assigned', `${pro.name} assigned to order ${booking.orderId}${extra}`);
     }
   }, []);
 
@@ -1448,7 +1565,7 @@ export default function App() {
     setPromos(updated);
   }, [promos]);
 
-  const pendingCount = bookings.filter(b => b.status === 'confirmed').length;
+  const pendingCount = bookings.filter(b => b.status === 'confirmed' && !b.isChildVisit && !b.isRecurringChild).length;
 
   // ══════════════════════════════════════════════════
   // SCREENS
@@ -1610,7 +1727,8 @@ export default function App() {
       {/* Booking Detail Modal (always rendered at root level) */}
       <BookingDetailModal
         selBooking={selBooking} setSelBooking={setSelBooking}
-        employees={employees} onAssign={handleAssign} onUpdateStatus={handleUpdateStatus}
+        employees={employees} bookings={bookings}
+        onAssign={handleAssign} onUpdateStatus={handleUpdateStatus}
       />
     </View>
   );
