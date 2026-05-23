@@ -21,7 +21,8 @@
       "appleTeamId": "73RYNYV3JU",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "VEGA Admin shows live worker locations on the map for operational oversight."
       },
       "config": {
         "usesNonExemptEncryption": false
