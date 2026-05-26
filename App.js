@@ -18,6 +18,76 @@ import messaging from '@react-native-firebase/messaging';
 import MapTab  from './src/MapTab';
 import MoreTab from './src/MoreTab';
 
+// ─────────────────────────────────────────────────────────────────────
+// 🐛 BUG REPORT — floating button + modal (writes to bug_reports)
+// ─────────────────────────────────────────────────────────────────────
+const submitBugReportAdmin = async (context, description, severity) => {
+  try {
+    await firestore().collection('bug_reports').add({
+      app: 'admin',
+      description: (description || '').trim(),
+      severity: severity || 'normal',
+      reportedAt: firestore.FieldValue.serverTimestamp(),
+      ...context,
+      status: 'open',
+      device: { os: Platform.OS, version: Platform.Version },
+    });
+    return true;
+  } catch (e) { console.log('bug report:', e.message); return false; }
+};
+const BugFAB = ({ onPress }) => (
+  <TouchableOpacity onPress={onPress}
+    style={{ position:'absolute', bottom:80, right:14, width:42, height:42, borderRadius:21,
+      backgroundColor:'rgba(232,82,10,0.9)', alignItems:'center', justifyContent:'center',
+      shadowColor:'#000', shadowOffset:{width:0,height:4}, shadowOpacity:0.4, shadowRadius:8, elevation:8, zIndex:999 }}>
+    <Text style={{ fontSize:18 }}>🐛</Text>
+  </TouchableOpacity>
+);
+const BugModal = ({ visible, onClose, context }) => {
+  const [desc, setDesc] = useState('');
+  const [sev, setSev]   = useState('normal');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!visible) { setDesc(''); setSev('normal'); setBusy(false); } }, [visible]);
+  const send = async () => {
+    if (desc.trim().length < 5) { Alert.alert('Need a description', 'At least 5 characters please'); return; }
+    setBusy(true);
+    const ok = await submitBugReportAdmin(context, desc, sev);
+    setBusy(false);
+    if (ok) { Alert.alert('🐛 Bug Report Sent', 'Saved to bug_reports.'); onClose(); }
+    else Alert.alert('Failed', 'Check your internet and try again');
+  };
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.6)', justifyContent:'flex-end' }}>
+        <View style={{ backgroundColor:'#FEFCF8', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20, paddingBottom:32 }}>
+          <Text style={{ fontSize:18, fontWeight:'700', color:'#18080A', marginBottom:8 }}>🐛 Report a Bug</Text>
+          <Text style={{ fontSize:12, color:'#7A6048', marginBottom:12 }}>Auto-captures screen, user, context.</Text>
+          <View style={{ flexDirection:'row', gap:8, marginBottom:12 }}>
+            {[{id:'low',label:'🟢 Minor'},{id:'normal',label:'🟠 Normal'},{id:'high',label:'🔴 Critical'}].map(s=>(
+              <TouchableOpacity key={s.id} onPress={()=>setSev(s.id)}
+                style={{ flex:1, paddingVertical:10, borderRadius:10, alignItems:'center',
+                  backgroundColor: sev===s.id ? '#C8541A' : '#FFF', borderWidth:1, borderColor: sev===s.id ? '#C8541A' : '#E8DDD4' }}>
+                <Text style={{ fontSize:11, fontWeight:'700', color: sev===s.id ? '#FFF' : '#18080A' }}>{s.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput multiline value={desc} onChangeText={setDesc}
+            placeholder="What went wrong?" placeholderTextColor="#9D8068"
+            style={{ borderWidth:1, borderColor:'#E8DDD4', borderRadius:14, padding:12, color:'#18080A', minHeight:100, textAlignVertical:'top', marginBottom:12 }}/>
+          <View style={{ flexDirection:'row', gap:10 }}>
+            <TouchableOpacity onPress={onClose} style={{ flex:1, padding:14, borderRadius:14, borderWidth:1, borderColor:'#E8DDD4', alignItems:'center' }}>
+              <Text style={{ color:'#7A6048', fontWeight:'600' }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={send} disabled={busy} style={{ flex:2, padding:14, borderRadius:14, backgroundColor:'#C8541A', alignItems:'center', opacity: busy?0.5:1 }}>
+              {busy ? <ActivityIndicator color="#FFF"/> : <Text style={{ color:'#FFF', fontWeight:'700' }}>Send Report</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const { width: W } = Dimensions.get('window');
 
 // ══════════════════════════════════════════════════
@@ -1350,6 +1420,7 @@ export default function App() {
   const [refreshing, setRefreshing]= useState(false);
   const [phoneError, setPhoneError]= useState('');
   const [otpError,   setOtpError]  = useState('');
+  const [showBugModal, setShowBugModal] = useState(false);
 
   // Data
   const [bookings,        setBookings]       = useState([]);
@@ -1730,6 +1801,10 @@ export default function App() {
         employees={employees} bookings={bookings}
         onAssign={handleAssign} onUpdateStatus={handleUpdateStatus}
       />
+      <BugFAB onPress={() => setShowBugModal(true)} />
+      <BugModal visible={showBugModal} onClose={() => setShowBugModal(false)}
+        context={{ currentScreen: screen, currentTab: tab, adminPhone: phone || null,
+          bookingsCount: bookings.length, employeesCount: employees.length }}/>
     </View>
   );
 }
